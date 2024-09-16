@@ -54,23 +54,35 @@ public class UpdateChecker {
     this.resourceId = resourceId;
     this.currentVersion = Integer.parseInt(plugin.getDescription().getVersion()
         .replace(".", "").replace("-SNAPSHOT", ""));
-    try {
-      final String spigotVersion = getSpigotVersion();
-      if (spigotVersion != null) {
-        this.spigotVersion = Integer.parseInt(spigotVersion.replace(".", ""));
-      } else {
-        this.spigotVersion = currentVersion;
-      }
-    } catch (ExecutionException | InterruptedException e) {
-      e.printStackTrace();
-    }
+
+    getSpigotVersion().thenAccept(spigotVersion ->
+            {
+              try
+              {
+                if (spigotVersion != null)
+                  this.spigotVersion = Integer.parseInt(spigotVersion.replace(".", ""));
+                else
+                  this.spigotVersion = currentVersion;
+              }
+              catch (Throwable t)
+              {
+                t.printStackTrace();
+
+                this.spigotVersion = currentVersion;
+              }
+            })
+            .exceptionally((ex) ->
+            {
+              ex.printStackTrace();
+              return null;
+            });
   }
 
   /**
    * Get the plugin version currently posted on Spigot.
    */
-  private @Nullable String getSpigotVersion() throws ExecutionException, InterruptedException {
-    CompletableFuture<String> spigotVersion = CompletableFuture.supplyAsync(() -> {
+  private CompletableFuture<String> getSpigotVersion() {
+    return CompletableFuture.supplyAsync(() -> {
       try {
         URL url = new URL("https://api.spigotmc.org/simple/0.1/index.php?action=getResource&id=" + resourceId);
         BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
@@ -81,7 +93,6 @@ public class UpdateChecker {
         return null;
       }
     });
-    return spigotVersion.get();
   }
 
   public boolean isAheadOfSpigot() {
